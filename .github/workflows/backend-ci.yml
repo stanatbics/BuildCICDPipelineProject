@@ -2,12 +2,12 @@ name: Continuous integration for backend
 
 on:
   workflow_dispatch:
-  inputs:
-    branch:
-      description: 'Select branch'
-      required: true
-      default: 'main'
-      type: string
+    inputs:
+      branch:
+        description: 'Select branch'
+        required: true
+        default: 'main'
+        type: string
   pull_request:
     branches:
       - main
