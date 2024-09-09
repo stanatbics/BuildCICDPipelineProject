@@ -1,0 +1,133 @@
+name: backend CD Workflow
+env:
+      AWS_REGION: "us-east-1"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'starter/backend/**'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Select branch'
+        required: true
+        default: 'main'
+        type: string
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checking out code
+        uses: actions/checkout@v3
+
+      - name: Setting up Python
+        uses: actions/setup-python@v4
+        with:
+           python-version: '3.10'
+
+      - name: Installing the pipenv
+        run: |
+          cd starter/backend  
+          pip install pipenv
+      
+      - name: Installing the dependencies
+        run: |
+          cd starter/backend
+          pipenv install --dev
+
+      - name: Running the lint
+        run: |
+          cd starter/backend
+          pipenv run lint
+  
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checking out the code
+        uses: actions/checkout@v3
+
+      - name: Setting up Python
+        uses: actions/setup-python@v4
+        with:
+           python-version: '3.10'
+
+      - name: Installing the pipenv
+        run: |
+          cd starter/backend  
+          pip install pipenv
+
+      - name: Installing the dependencies
+        run: |
+          cd starter/backend 
+          pipenv install
+
+      - name: Running the tests
+        run: |
+          cd starter/backend 
+          pipenv run test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checking out  the code
+        uses: actions/checkout@v3
+
+      - name: Settig up Docker Build
+        uses: docker/setup-buildx-action@v2
+
+      - name: Configuring the AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${AWS_REGION}
+
+      - name: Logging in to AWS ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Building Docker image
+        run: |
+          cd starter/backend
+          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_BACKEND }}
+          GIT_SHA=${{ github.sha }}
+          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
+          docker build -t $TAGGED_IMAGE .
+      
+      - name: Pushing the Docker image to ECR
+        run: |
+          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_BACKEND }}
+          GIT_SHA=${{ github.sha }}
+          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
+          docker push $TAGGED_IMAGE
+  
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checking out code
+        uses: actions/checkout@v3
+ 
+      - name: Configure kubectl config file
+        run: |
+          aws eks --region us-east-1 update-kubeconfig --name cluster
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${AWS_REGION}
+      
+      - name: Deploying to Kubernetes
+        run: |
+          cd starter/backend/k8s 
+          GIT_SHA=${{ github.sha }}
+          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_BACKEND }}
+          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
+          kustomize edit set image backend=${TAGGED_IMAGE}
+          kustomize build | kubectl apply -f - --validate=false
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${AWS_REGION}
