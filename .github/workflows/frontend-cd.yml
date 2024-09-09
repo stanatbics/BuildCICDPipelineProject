@@ -1,4 +1,4 @@
-name: frontend CD Workflow
+name: Continuous Deployment for frontend
 env:
       AWS_REGION: "us-east-1"
 

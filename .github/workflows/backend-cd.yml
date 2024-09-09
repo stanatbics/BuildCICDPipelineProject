@@ -1,4 +1,4 @@
-name: backend CD Workflow
+name: Continuous deployment for backend
 env:
       AWS_REGION: "us-east-1"
 
