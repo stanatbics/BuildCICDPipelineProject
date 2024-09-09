@@ -91,17 +91,17 @@ jobs:
       - name: Building Docker image
         run: |
           cd starter/backend
-          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_BACKEND }}
+          ECR_REPO=${{ secrets.ECR_REPO_URI_BACKEND }}
           GIT_SHA=${{ github.sha }}
-          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
-          docker build -t $TAGGED_IMAGE .
+          IMAGE_TAG="${ECR_REPO}:${GIT_SHA}"
+          docker build -t $IMAGE_TAG .
       
       - name: Pushing the Docker image to ECR
         run: |
-          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_BACKEND }}
+          ECR_REPO=${{ secrets.ECR_REPO_URI_BACKEND }}
           GIT_SHA=${{ github.sha }}
-          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
-          docker push $TAGGED_IMAGE
+          IMAGE_TAG="${ECR_REPO}:${GIT_SHA}"
+          docker push $IMAGE_TAG
   
   deploy:
     runs-on: ubuntu-latest
@@ -122,9 +122,9 @@ jobs:
         run: |
           cd starter/backend/k8s 
           GIT_SHA=${{ github.sha }}
-          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_BACKEND }}
-          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
-          kustomize edit set image backend=${TAGGED_IMAGE}
+          ECR_REPO=${{ secrets.ECR_REPO_URI_BACKEND }}
+          IMAGE_TAG="${ECR_REPO}:${GIT_SHA}"
+          kustomize edit set image backend=${IMAGE_TAG}
           kustomize build | kubectl apply -f - --validate=false
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

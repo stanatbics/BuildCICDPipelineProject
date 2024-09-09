@@ -79,25 +79,24 @@ jobs:
       - name: Log in to AWS ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build Docker image
+      - name: Building the Docker image
         env:
           REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL }}
         run: |
           cd starter/frontend
-          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_FRONTEND }}
+          ECR_REPO=${{ secrets.ECR_REPO_URI_FRONTEND }}
           GIT_SHA=${{ github.sha }}
-          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
+          IMAGE_TAG="${ECR_REPO}:${GIT_SHA}"
           docker build \
           --build-arg=REACT_APP_MOVIE_API_URL="$REACT_APP_MOVIE_API_URL/" \
-          -t $TAGGED_IMAGE \
-          .
+          -t $IMAGE_TAG .
       
-      - name: Push Docker image to ECR
+      - name: Pushing the Docker image to ECR
         run: |
-          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_FRONTEND }}
+          ECR_REPO=${{ secrets.ECR_REPO_URI_FRONTEND }}
           GIT_SHA=${{ github.sha }}
-          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
-          docker push $TAGGED_IMAGE
+          IMAGE_TAG="${ECR_REPO}:${GIT_SHA}"
+          docker push $IMAGE_TAG
   
   deploy:
     runs-on: ubuntu-latest
@@ -110,17 +109,17 @@ jobs:
         run: |
           aws eks --region us-east-1 update-kubeconfig --name cluster
         env:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${AWS_REGION}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${AWS_REGION}
       
       - name: Deploy to Kubernetes
         run: |
           cd starter/frontend/k8s 
           GIT_SHA=${{ github.sha }}
-          REPOSITORY_URI=${{ secrets.ECR_REPO_URI_FRONTEND }}
-          TAGGED_IMAGE="${REPOSITORY_URI}:${GIT_SHA}"
-          kustomize edit set image frontend=${TAGGED_IMAGE}
+          ECR_REPO=${{ secrets.ECR_REPO_URI_FRONTEND }}
+          IMAGE_TAG="${ECR_REPO}:${GIT_SHA}"
+          kustomize edit set image frontend=${IMAGE_TAG}
           kustomize build | kubectl apply -f - --validate=false
         env:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
